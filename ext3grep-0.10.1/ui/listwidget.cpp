@@ -13,17 +13,17 @@ ListWidget::ListWidget(QWidget *parent)
   QVBoxLayout *vbox2 = new QVBoxLayout(this);
   vbox->setSpacing(10);
 
-
   //layouts
   QHBoxLayout *hbox = new QHBoxLayout(this);
   QHBoxLayout *hbox2 = new QHBoxLayout(this);
 
   lw = new QListWidget(this);
 
-  add = new QPushButton("Browse Filesystem", this);
-  unmount = new QPushButton("Unmount", this);
+  add = new QPushButton("Browse Filesystem Image", this);
+  //unmount = new QPushButton("Unmount", this);
   tree = new QPushButton("Scan...", this);
-  tree->setEnabled(FALSE);
+  //tree->setEnabled(FALSE);
+  recover= new QPushButton("Recover Me", this);
   remove = new QPushButton("Remove", this);
   removeAll = new QPushButton("Remove All", this);
   quit= new QPushButton("Quit", this);
@@ -32,8 +32,9 @@ ListWidget::ListWidget(QWidget *parent)
 
   vbox->setSpacing(5);
   vbox->addStretch(5);
-  vbox->addWidget(unmount);
+  //vbox->addWidget(unmount);
   vbox->addWidget(tree);
+  vbox->addWidget(recover); 
   vbox->addStretch(5);
   vbox->addWidget(remove);
   vbox->addWidget(removeAll);
@@ -52,8 +53,9 @@ ListWidget::ListWidget(QWidget *parent)
   vbox->addStretch(1);
 
   connect(add, SIGNAL(clicked()), this, SLOT(addItem()));
-  connect(unmount, SIGNAL(clicked()), this, SLOT(unmount_fs()));
+  //connect(unmount, SIGNAL(clicked()), this, SLOT(unmount_fs()));
   connect(tree, SIGNAL(clicked()), this, SLOT(display_tree()));
+  connect(recover, SIGNAL(clicked()), this, SLOT(recover_file()));
   connect(remove, SIGNAL(clicked()), this, SLOT(removeItem()));
   connect(removeAll, SIGNAL(clicked()), this, SLOT(clearItems()));
   connect(quit, SIGNAL(clicked()), qApp, SLOT(quit()));
@@ -63,93 +65,114 @@ ListWidget::ListWidget(QWidget *parent)
   display_parts();
 }
 
+//void ListWidget::unmount_fs(){}
 
 void ListWidget::addItem()
 {
-    QString path;
+	QString path;
 
-    /* browse pt fisiere 
-    path = QFileDialog::getOpenFileName(this, "Choose a file to open", QString::null, QString::null);*/
-
-   //browse pt directorul unde este montat un sistem de fisiere
-    path = QFileDialog::getExistingDirectory(this,tr("Find Files"), QDir::currentPath());
-
-    if (!path.isEmpty() && lw->findItems(path,Qt::MatchExactly).count() == 0) 
-   	  lw->addItem(path);
-
- }
+    	//browse pt fisiere 
+    	path = QFileDialog::getOpenFileName(this, "Choose a file to open", QString::null, QString::null);
 
 
-void ListWidget::unmount_fs()
-{ QListWidgetItem *current_selection = lw->currentItem();
-
-  if (current_selection) { 
-
-	  QString item = lw->currentItem()->text();
-
-	  //urmatoarele 2 randuri convertesc din QString in char *
-	  QByteArray text = item.toLatin1();
-	  char *name = text.data(); 
-
-	//aflare loop device montat la adresa din lista
+	//urmatoarele 2 randuri convertesc din QString in char *
+	  	QByteArray text = path.toLatin1();
+	  	char *name = text.data(); 
+		strcpy(image,name);
 	
-
-	char command[100],image[100];
-	strcpy(command,"mount | grep ");
-	strcat(command,name);
-	strcat(command," | cut -d ' ' -f 1 > file.txt ");
+	char command[100];
+	strcpy(command,"file ");
+	strcat(command,image);
+	strcat(command," > stage1.txt");
 	system(command);
-	FILE *f=fopen("file.txt","r");
-	fgets(image,100,f);
-	image[strlen(image)-1]='\0';
+
+	FILE *f=fopen("stage1.txt","r");
+	char string[100];
+	fgets(string,100,f);
 	fclose(f);
 
-	//scrie stage 1 in stage1.txt
-	strcpy(command,"sudo ext3grep ");
-	strcat(command,image);
-	strcat(command," --dump-names > stage1.txt");
-	system(command);
+   	//browse pt directorul unde este montat un sistem de fisiere
+    	//path = QFileDialog::getExistingDirectory(this,tr("Find Files"), QDir::currentPath());
 
-	//strcpy(command," ");
-
-	  char string[100];
-	  char message[100];
-	  strcpy(string,"sudo umount ");
-	  strcat(string,name);
-	  strcpy(message,name);
-	  if(system(string) == 0){
-		strcat(message," was successfully unmounted!");
-		tree->setEnabled(TRUE);
+    	if (!path.isEmpty() && lw->findItems(path,Qt::MatchExactly).count() == 0) {
+		if(strstr(string," ext3 ")!=NULL)	
+   	  		lw->addItem(path);
+		else 
+			if(QMessageBox::information(0,"Scan","Select ext3 filesystems only!"));
 	}
-  	  else
-		strcat(message," could not be unmounted");
-	  if(QMessageBox::information(0,"Unmount",message,1));
-	  lw->clear();
-  }
- else
-	if(QMessageBox::information(0,"Unmount","Please select a item from the list."));
 }
-
 
 
 void ListWidget::display_tree()
 {	
-	QLabel *label;
-	label = new QLabel(0);
-	
-	
-	FILE *f=fopen("stage1.txt","r");
+	QListWidgetItem *current_selection = lw->currentItem();
 
-	char string[100],text[10000];
-	while(fgets(string,100,f)!=NULL)
-		strcat(text,string);
-	fclose(f);
+  	if (current_selection) { 
 
-  	label->setText(text);
-	label->show();
-	tree->setEnabled(FALSE);
+		QString item = lw->currentItem()->text();
+
+	 	//urmatoarele 2 randuri convertesc din QString in char *
+	  	QByteArray text = item.toLatin1();
+	  	char *name = text.data(); 
+		strcpy(image,name);
+
+		//scrie stage 1 in stage1.txt
+		char string[100],command[100];
+		strcpy(command,"sudo ext3grep ");
+		strcat(command,image);
+		strcat(command," --dump-names > stage1.txt");
+		system(command);
+
+		if (lw->count() != 0)
+    			lw->clear();
+	
+		FILE *f=fopen("stage1.txt","r");
+		
+		int s=0;	
+		while(fgets(string,100,f)!=NULL){
+			string[strlen(string)-1]='\0';
+			if(strstr(string,"ext3grep.stage2")) {s=1;continue;}
+	
+			if(s==1) 
+				lw->addItem(string);
+		}
+		fclose(f);
+	}  
+	else
+		if(QMessageBox::information(0,"Scan","Please select a item from the list."));	
 }
 
+
+void ListWidget::recover_file()
+{ 
+	QListWidgetItem *current_selection = lw->currentItem();
+	char command[100];
+
+  	if (current_selection) { 
+
+		QString item = lw->currentItem()->text();
+
+	  	//urmatoarele 2 randuri convertesc din QString in char *
+	  	QByteArray text = item.toLatin1();
+	  	char *file_name = text.data(); 
+	  
+
+		strcpy(command,"ext3grep ");
+		strcat(command,image);
+		strcat(command," --restore-file ");
+		strcat(command,file_name);
+printf("%s\n\n\n",command);
+		system(command);
+	       	char message[100];	
+		if(system(command) == 0)
+		      	strcpy(message,"File was successfully recovered! yey!");
+		else 
+			strcpy(message,"Error. Sorry!");
+		if(QMessageBox::information(0,"Recovery status",message,1));
+  	}
+ 	else
+	 	if(QMessageBox::information(0,"Recovery status","Please select a item from the list."));
+}
 
 void ListWidget::removeItem()
 {
@@ -194,16 +217,36 @@ void center(QWidget &widget)
   widget.move( x, y );
 }
 
+
+
 int main(int argc, char *argv[])
 {
-  QApplication app(argc, argv);  
 
-  ListWidget window;
+  //comanda = "gksu numele_executabilului 0"
+  char comanda[100] = "gksu ";
+  strcat(comanda, argv[0]);
+  strcat(comanda, " 0");
+
+  if ( argc == 2 && strcmp(argv[1], "1")==0 ){
+  	system(comanda);
+  }
+  else if(argc == 2 && strcmp(argv[1], "0")==0 ){
 	
-  window.setWindowTitle("Ext3grep");
-  window.show();
-  center(window);
+  	QApplication app(argc, argv);  
 
+  	ListWidget window;
+	
+  	window.setWindowTitle("Ext3grep");
+  	window.show();
+	window.setGeometry(0,0,400,300);
+  	center(window);
+        system("fdisk -l | tr -d '*' | tr -s ' ' | cut -d ' ' -f 1,6,7,8,9 | grep Linux | grep -v swap  > file.txt");
   return app.exec();
+  }
+  else{
+  	printf("Nu ati introdus parametrul programului");
+	return 1;
+  }
+
 }
 
