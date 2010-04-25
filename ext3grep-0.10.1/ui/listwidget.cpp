@@ -84,11 +84,17 @@ void ListWidget::addItem()
 	strcpy(command,"file ");
 	strcat(command,image);
 	strcat(command," > stage1.txt");
-	system(command);
+	if (system(command) == -1){
+		perror("system");
+		exit(-1);
+	}
 
 	FILE *f=fopen("stage1.txt","r");
 	char string[100];
-	fgets(string,100,f);
+	if (fgets(string,100,f) == NULL) {
+		perror("fgets");
+		exit(-1);
+	}
 	fclose(f);
 
    	//browse pt directorul unde este montat un sistem de fisiere
@@ -98,7 +104,7 @@ void ListWidget::addItem()
 		if(strstr(string," ext3 ")!=NULL)	
    	  		lw->addItem(path);
 		else 
-			if(QMessageBox::information(0,"Scan","Select ext3 filesystems only!"));
+			if((QMessageBox::information(0,"Scan","Select ext3 filesystems only!"))) {} ;
 	}
 }
 
@@ -121,7 +127,10 @@ void ListWidget::display_tree()
 		strcpy(command,"sudo ext3grep ");
 		strcat(command,image);
 		strcat(command," --dump-names > stage1.txt");
-		system(command);
+		if (system(command) == -1) {
+			perror("system");
+			exit(-1);
+		}
 
 		if (lw->count() != 0)
     			lw->clear();
@@ -131,6 +140,7 @@ void ListWidget::display_tree()
 		int s=0;	
 		while(fgets(string,100,f)!=NULL){
 			string[strlen(string)-1]='\0';
+			
 			if(strstr(string,"ext3grep.stage2")) {s=1;continue;}
 	
 			if(s==1) 
@@ -138,8 +148,8 @@ void ListWidget::display_tree()
 		}
 		fclose(f);
 	}  
-	else
-		if(QMessageBox::information(0,"Scan","Please select a item from the list."));	
+	else                                                                            
+		if((QMessageBox::information(0,"Scan","Please select a item from the list."))) {;}
 }
 
 
@@ -160,18 +170,21 @@ void ListWidget::recover_file()
 		strcpy(command,"ext3grep ");
 		strcat(command,image);
 		strcat(command," --restore-file ");
-		strcat(command,file_name);
-printf("%s\n\n\n",command);
-		system(command);
-	       	char message[100];	
+		strcat(command,file_name);	
+		printf("%s\n\n\n",command);
+		if (system(command) == -1) {
+			perror("system");
+			exit(-1);
+		}
+	    char message[100];	
 		if(system(command) == 0)
 		      	strcpy(message,"File was successfully recovered! yey!");
 		else 
 			strcpy(message,"Error. Sorry!");
-		if(QMessageBox::information(0,"Recovery status",message,1));
+		if(QMessageBox::information(0,"Recovery status",message,1)) {;}
   	}
  	else
-	 	if(QMessageBox::information(0,"Recovery status","Please select a item from the list."));
+	 	if(QMessageBox::information(0,"Recovery status","Please select a item from the list.")) {;}
 }
 
 void ListWidget::removeItem()
@@ -184,7 +197,7 @@ void ListWidget::removeItem()
     delete item;
   }
   else
-	if(QMessageBox::information(0,"Unmount","Please select a partition"));
+	if(QMessageBox::information(0,"Unmount","Please select a partition")) {;}
 }
 
 void ListWidget::clearItems()
@@ -228,7 +241,10 @@ int main(int argc, char *argv[])
   strcat(comanda, " 0");
 
   if ( argc == 2 && strcmp(argv[1], "1")==0 ){
-  	system(comanda);
+  	if (system(comanda) == -1) {
+		perror("system");
+		exit(-1);
+	}
   }
   else if(argc == 2 && strcmp(argv[1], "0")==0 ){
 	
@@ -240,7 +256,11 @@ int main(int argc, char *argv[])
   	window.show();
 	window.setGeometry(0,0,400,300);
   	center(window);
-        system("fdisk -l | tr -d '*' | tr -s ' ' | cut -d ' ' -f 1,6,7,8,9 | grep Linux | grep -v swap  > file.txt");
+    if (system("fdisk -l | tr -d '*' | tr -s ' ' | cut -d ' ' -f 1,6,7,8,9 |\
+				grep Linux | grep -v swap  > file.txt") == -1) {
+		perror("system");
+		exit(-1);
+	}
   return app.exec();
   }
   else{
